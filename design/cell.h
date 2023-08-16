@@ -5,7 +5,7 @@
 
 class Cell : public CellInterface {
 public:
-    Cell(SheetInterface& sheet_);
+    explicit Cell(SheetInterface& sheet_);
     ~Cell();
 
     void Set(std::string text);
@@ -20,8 +20,7 @@ private:
 
     std::unique_ptr<Impl> impl_;
     SheetInterface& sheet_;
-    bool IsEdited;
-    CellInterface::Value cached_value_;
+    std::optional<CellInterface::Value> cached_value_;
 
     class Impl{
     public:

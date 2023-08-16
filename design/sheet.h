@@ -27,8 +27,8 @@ public:
 private:
     std::unordered_map<Position, Cell_ptr, PositionHash> cells_;
     mutable Size printable_size_;
-    mutable std::vector<int> rows_count_;
-    mutable std::vector<int> cols_count_;
+    std::vector<int> rows_count_;
+    std::vector<int> cols_count_;
     
     struct CellValuePrinter {
         std::string operator()(double value) const;
