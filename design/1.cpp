@@ -9,19 +9,12 @@
 #include <vector>
 
 using Cell_ptr = std::unique_ptr<Cell>;
-
-struct PositionHash {
-    size_t operator()(const Position& pos) const {
-        size_t hash_row = std::hash<int>{}(pos.row);
-        size_t hash_col = std::hash<int>{}(pos.col);
-        return hash_row ^ (hash_col << 1);
-    }
-};
+using Cols = std::unordered_map<int, Cell_ptr>;
 
 class Sheet : public SheetInterface {
 public:
     Sheet();
-    ~Sheet() = default;
+    ~Sheet();
 
     void SetCell(Position pos, std::string text) override;
     const CellInterface* GetCell(Position pos) const override;
@@ -34,8 +27,8 @@ public:
 private:
     std::unordered_map<Position, Cell_ptr, PositionHash> cells_;
     mutable Size printable_size_;
-    std::vector<int> rows_count_;
-    std::vector<int> cols_count_;
+    mutable std::vector<int> rows_count_;
+    mutable std::vector<int> cols_count_;
     
     struct CellValuePrinter {
         std::string operator()(double value) const {
@@ -50,7 +43,9 @@ private:
             return value;
         }
         std::string operator()(const FormulaError& value) const {
-            return std::string{value.ToString()};
+            std::string result = "#";
+            result = result + value.what() + "!";
+            return result;
         }
         
     };

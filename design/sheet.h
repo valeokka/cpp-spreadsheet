@@ -31,9 +31,23 @@ private:
     std::vector<int> cols_count_;
     
     struct CellValuePrinter {
-        std::string operator()(double value) const;
-        std::string operator()(const std::string& value) const;
-        std::string operator()(const FormulaError& value) const;
+        std::string operator()(double value) const {
+            double int_check;
+            if(std::modf(value, &int_check) == 0.0){
+                return std::to_string(int(value));
+            }else{
+               return std::to_string(value); 
+            }
+        }
+        std::string operator()(const std::string& value) const {
+            return value;
+        }
+        std::string operator()(const FormulaError& value) const {
+            std::string result = "#";
+            result = result + value.what() + "!";
+            return result;
+        }
+        
     };
 
     void InvalidateCacheChilds(Position pos);
