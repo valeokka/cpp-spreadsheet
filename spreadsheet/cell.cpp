@@ -5,6 +5,64 @@
 #include <string>
 #include <optional>
 
+class Cell::Impl{
+public:
+explicit Impl(const std::string raw) 
+: raw_text_(raw) {}
+virtual Value GetValue() = 0;
+    virtual std::string GetText() = 0;
+    virtual std::vector<Position> GetReferencedCells() { return {};}
+protected:
+    std::string raw_text_;
+};
+
+class Cell::EmptyImpl final : public Cell::Impl{
+public:
+    explicit EmptyImpl(const std::string raw)
+    : Cell::Impl(raw) {}
+
+    Value GetValue() override{ return "";}
+    std::string GetText() override{ return "";}
+};
+
+class Cell::TextImpl : public Cell::Impl{
+public:
+    explicit TextImpl(const std::string raw)
+    : Cell::Impl(raw) {}
+
+    Value GetValue() override{ return raw_text_[0] == ESCAPE_SIGN ? raw_text_.substr(1) : raw_text_;}
+    std::string GetText() override{ return raw_text_;}
+};
+
+class Cell::FormulaImpl : public Cell::Impl{
+public:
+    explicit FormulaImpl(const std::string& raw, SheetInterface& sheet)
+    : Cell::Impl(raw),
+    sheet_(sheet),
+    formula_(ParseFormula(raw.substr(1))) {}
+
+    Value GetValue() override{
+        FormulaInterface::Value result = formula_->Evaluate(sheet_);
+
+        if(std::holds_alternative<double>(result)){
+            return std::get<double>(result);
+        }else if(std::holds_alternative<FormulaError>(result)){
+            return std::get<FormulaError>(result);
+        }
+        return raw_text_;
+    }
+
+    std::string GetText() override{return FORMULA_SIGN + formula_->GetExpression();}
+    std::vector<Position> GetReferencedCells() override { return formula_->GetReferencedCells();}
+
+private:
+    SheetInterface& sheet_;
+    std::unique_ptr<FormulaInterface> formula_;
+};
+
+Cell::Cell(SheetInterface& sheet)
+    : sheet_(sheet),
+    impl_(std::make_unique<EmptyImpl>("")) {}
 
 Cell::~Cell() = default;
 
@@ -26,10 +84,18 @@ void Cell::Set(std::string text) {
 
     impl_ = std::move(impl);
     referenced_cells_ = impl_-> GetReferencedCells();
+    
+    InvalidateCacheChilds();
+    is_empty = false;
 }
 
 void Cell::Clear() {
-    impl_.reset();
+    Set("");
+    is_empty = true;
+    for (Cell* cell: referenced_by){
+        cell->GetReferenceTo().erase(this);
+    }
+    reference_to.clear();
 }
 
 Cell::Value Cell::GetValue() const {
@@ -93,3 +159,15 @@ bool Cell::TestCyclicDependance(const CellInterface* cell, Position head) const{
     }
     return res;
 }
+
+void Cell::Swap(Cell& other){
+    swap(cached_value_, other.cached_value_);
+    swap(impl_, other.impl_);
+    swap(referenced_cells_, other.referenced_cells_);
+    swap(referenced_by, other.referenced_by);
+    //reference_to не переносится, т.к. мы переносим данные ячейки, а не саму ячейку
+}
+
+ bool Cell::Empty(){
+    return is_empty;
+ }

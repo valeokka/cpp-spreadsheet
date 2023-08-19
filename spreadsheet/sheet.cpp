@@ -19,10 +19,11 @@ void Sheet::SetCell(Position pos, std::string text) {
         throw InvalidPositionException("invalid position");
     }
 
-    std::unique_ptr<Cell> cell = std::make_unique<Cell>(*this);
+    Cell* cell = new Cell(*this);
     cell->Set(text);
 
-    if(cell->TestCyclicDependance(cell.get(), pos)){
+    if(cell->TestCyclicDependance(cell, pos)){
+        delete cell;
         throw CircularDependencyException("Circular dependency"s); 
     }
 
@@ -33,23 +34,27 @@ void Sheet::SetCell(Position pos, std::string text) {
             if(!cell->GetReferencedBy().count(reference_cell)){
                 cell->GetReferencedBy().insert(reference_cell);
             }
-            if(!reference_cell->GetReferenceTo().count(cell.get())){
-                reference_cell->GetReferenceTo().insert(cell.get());
+            if(!reference_cell->GetReferenceTo().count(cell)){
+                reference_cell->GetReferenceTo().insert(cell);
             }
         }
     }
+    if(!cells_.count(pos)){
+        if(int(rows_count_.size()) < pos.row) { rows_count_.push_back(0);} 
+        ++rows_count_[pos.row];
+        printable_size_.rows = printable_size_.rows < pos.row + 1 ? pos.row +1 : printable_size_.rows;
 
-    cell->InvalidateCacheChilds();
+        if(int(cols_count_.size()) < pos.col) { cols_count_.push_back(0);} 
+        ++cols_count_[pos.col];
+        printable_size_.cols = printable_size_.cols < pos.col + 1 ? pos.col +1 : printable_size_.cols;
 
-    cells_[pos] = std::move(cell);
-    if(int(rows_count_.size()) < pos.row) { rows_count_.push_back(0);} 
-    ++rows_count_[pos.row];
-    printable_size_.rows = printable_size_.rows < pos.row + 1 ? pos.row +1 : printable_size_.rows;
+        cells_[pos] = std::make_unique<Cell>(*this); 
+    }
 
-    if(int(cols_count_.size()) < pos.col) { cols_count_.push_back(0);} 
-    ++cols_count_[pos.col];
-    printable_size_.cols = printable_size_.cols < pos.col + 1 ? pos.col +1 : printable_size_.cols;
-
+    //swap не переносит reference_to, поэтому избавляемся от старых зависимостей
+    cells_.at(pos)->Swap(*cell); 
+    
+    delete cell;
 }
 
 const CellInterface* Sheet::GetCell(Position pos) const {
@@ -60,7 +65,9 @@ const CellInterface* Sheet::GetCell(Position pos) const {
     }
 }
 CellInterface* Sheet::GetCell(Position pos) {
-    if(IsValid(pos)){
+    //в случае если ячейка была очищена должен возвращать nullptr,
+    //поэтому если cell = EmptyImpl возвращает nullptr
+    if(IsValid(pos) && !cells_.at(pos)->Empty()){
         return cells_.at(pos).get(); 
     } else {
         return nullptr;
@@ -69,11 +76,7 @@ CellInterface* Sheet::GetCell(Position pos) {
 
 void Sheet::ClearCell(Position pos) {
     if(IsValid(pos)){
-        // auto cell = cells_.at(pos).get();
-        // for(const auto& referenced_by : cell->GetReferencedBy()){
-        //     referenced_by->GetReferencedBy().erase(cell);
-        // }
-        cells_.at(pos).reset();
+        cells_.at(pos)->Clear(); 
         --rows_count_[pos.row];
         --cols_count_[pos.col];
     } 
