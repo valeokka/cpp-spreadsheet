@@ -37,6 +37,7 @@ void Sheet::SetCell(Position pos, std::string text) {
             }
         }
     }
+    
 
     if(!IsExists){
         if(int(rows_count_.size()) < pos.row) { rows_count_.push_back(0);} 
