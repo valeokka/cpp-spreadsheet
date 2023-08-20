@@ -3,15 +3,18 @@
 #include "common.h"
 #include "formula.h"
 
+
 #include <optional>
 #include <unordered_set>
 #include <vector>
 #include <stack>
 #include <algorithm>
 
+class Sheet;
+
 class Cell : public CellInterface {
 public:
-    explicit Cell(SheetInterface& sheet);
+    explicit Cell(Sheet& sheet);
     ~Cell();
 
     void Set(std::string text, Position pos);
@@ -37,7 +40,7 @@ private:
     class TextImpl;
     class FormulaImpl;
 
-    SheetInterface& sheet_;
+    Sheet& sheet_;
     std::unique_ptr<Impl> impl_;
     mutable std::optional<CellInterface::Value> cached_value_;
     std::vector<Position> referenced_cells_;

@@ -1,4 +1,5 @@
 #include "cell.h"
+#include "sheet.h"
 
 #include <cassert>
 #include <iostream>
@@ -36,7 +37,7 @@ public:
 
 class Cell::FormulaImpl : public Cell::Impl{
 public:
-    explicit FormulaImpl(const std::string& raw, SheetInterface& sheet)
+    explicit FormulaImpl(const std::string& raw, Sheet& sheet)
     : Cell::Impl(raw),
     sheet_(sheet),
     formula_(ParseFormula(raw.substr(1))) {}
@@ -56,13 +57,13 @@ public:
     std::vector<Position> GetReferencedCells() override { return formula_->GetReferencedCells();}
 
 private:
-    SheetInterface& sheet_;
+    Sheet& sheet_;
     std::unique_ptr<FormulaInterface> formula_;
 };
 
-Cell::Cell(SheetInterface& sheet)
+Cell::Cell(Sheet& sheet)
     : sheet_(sheet),
-    impl_(std::make_unique<EmptyImpl>("")) {}
+      impl_(std::make_unique<EmptyImpl>("")) {}
 
 Cell::~Cell() = default;
 
@@ -84,21 +85,30 @@ void Cell::Set(std::string text, Position pos) {
     }else{
         impl = std::make_unique<TextImpl>(text);
     }
+
     if(NeedCyclicTest && TestCyclicDependance(impl->GetReferencedCells(), pos)){
         throw CircularDependencyException("Circular dependency"); 
     }
+
     for (Cell* cell: referenced_by){
         cell->GetReferenceTo().erase(this);
     }
     referenced_by.clear();
-    // for (Cell* cell: reference_to){
-    //     cell->GetReferencedBy().erase(this);
-    // }
-    // reference_to.clear();
-    
 
     impl_ = std::move(impl);
     referenced_cells_ = impl_-> GetReferencedCells();
+
+    if(IsReferenced()){ 
+        for(Position reference_pos : referenced_cells_ ){ 
+            Cell* reference_cell = sheet_.GetOrCreateCell(reference_pos); 
+            if(!referenced_by.count(reference_cell)){ 
+                referenced_by.insert(reference_cell); 
+            } 
+            if(!reference_cell->GetReferenceTo().count(this)){ 
+                reference_cell->GetReferenceTo().insert(this); 
+            } 
+        }     
+    }
     
     InvalidateCacheChilds();
     is_empty = false;

@@ -1,8 +1,5 @@
 #include "sheet.h"
 
-#include "cell.h"
-#include "common.h"
-
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -24,20 +21,6 @@ void Sheet::SetCell(Position pos, std::string text) {
 
     Cell* cell = cells_.at(pos).get();
     cell->Set(text, pos);
-
-    if(cell->IsReferenced()){
-        for(Position reference_pos : cell->GetReferencedCells()){
-            if(!cells_.count(reference_pos)){SetCell(reference_pos, "");}
-            Cell* reference_cell = cells_.at(reference_pos).get();
-            if(!cell->GetReferencedBy().count(reference_cell)){
-                cell->GetReferencedBy().insert(reference_cell);
-            }
-            if(!reference_cell->GetReferenceTo().count(cell)){
-                reference_cell->GetReferenceTo().insert(cell);
-            }
-        }
-    }
-    
 
     if(!IsExists){
         if(int(rows_count_.size()) < pos.row) { rows_count_.push_back(0);} 
@@ -132,6 +115,13 @@ void Sheet::TestPosition(Position pos) const{
     if(!pos.IsValid()){
         throw InvalidPositionException("Invalid Position"s);
     }
+}
+
+Cell* Sheet::GetOrCreateCell(Position pos){
+    if(!IsValid(pos)){
+        SetCell(pos, "");
+    }
+    return cells_.at(pos).get();
 }
 
 std::unique_ptr<SheetInterface> CreateSheet() {

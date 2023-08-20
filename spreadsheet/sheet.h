@@ -30,6 +30,7 @@ public:
     Size GetPrintableSize() const override;
     void PrintValues(std::ostream& output) const override;
     void PrintTexts(std::ostream& output) const override;
+    Cell* GetOrCreateCell(Position pos);
 
 private:
     std::unordered_map<Position, Cell_ptr, PositionHash> cells_;
