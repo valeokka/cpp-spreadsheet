@@ -19,13 +19,11 @@ void Sheet::SetCell(Position pos, std::string text) {
         throw InvalidPositionException("invalid position");
     }
 
-    Cell* cell = new Cell(*this);
-    cell->Set(text);
+    bool IsExists = cells_.count(pos);
+    if(!IsExists){ cells_[pos] = std::make_unique<Cell>(*this); }
 
-    if(cell->TestCyclicDependance(cell, pos)){
-        delete cell;
-        throw CircularDependencyException("Circular dependency"s); 
-    }
+    Cell* cell = cells_.at(pos).get();
+    cell->Set(text, pos);
 
     if(cell->IsReferenced()){
         for(Position reference_pos : cell->GetReferencedCells()){
@@ -39,7 +37,8 @@ void Sheet::SetCell(Position pos, std::string text) {
             }
         }
     }
-    if(!cells_.count(pos)){
+
+    if(!IsExists){
         if(int(rows_count_.size()) < pos.row) { rows_count_.push_back(0);} 
         ++rows_count_[pos.row];
         printable_size_.rows = printable_size_.rows < pos.row + 1 ? pos.row +1 : printable_size_.rows;
@@ -47,14 +46,7 @@ void Sheet::SetCell(Position pos, std::string text) {
         if(int(cols_count_.size()) < pos.col) { cols_count_.push_back(0);} 
         ++cols_count_[pos.col];
         printable_size_.cols = printable_size_.cols < pos.col + 1 ? pos.col +1 : printable_size_.cols;
-
-        cells_[pos] = std::make_unique<Cell>(*this); 
     }
-
-    //swap не переносит reference_to, поэтому избавляемся от старых зависимостей
-    cells_.at(pos)->Swap(*cell); 
-    
-    delete cell;
 }
 
 const CellInterface* Sheet::GetCell(Position pos) const {

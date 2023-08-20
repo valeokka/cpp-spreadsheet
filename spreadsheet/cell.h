@@ -14,7 +14,7 @@ public:
     explicit Cell(SheetInterface& sheet);
     ~Cell();
 
-    void Set(std::string text);
+    void Set(std::string text, Position pos);
     void Clear();
 
     Value GetValue() const override;
@@ -29,7 +29,6 @@ public:
     bool TestCyclicDependance(const CellInterface* cell, Position head) const;
     void InvalidateCacheChilds();
 
-    void Swap(Cell& other);
     bool Empty();
 
 private:
@@ -47,4 +46,5 @@ private:
     bool is_empty = false;
 
     void InvalidateCache();
+    bool TestCyclicDependance(const std::vector<Position>& referenced_cells, Position head) const;
 };

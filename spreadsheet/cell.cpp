@@ -66,14 +66,17 @@ Cell::Cell(SheetInterface& sheet)
 
 Cell::~Cell() = default;
 
-void Cell::Set(std::string text) {
+void Cell::Set(std::string text, Position pos) {
     std::unique_ptr<Impl> impl;
+
+    bool NeedCyclicTest = false;
 
     if(text.empty()){
         impl = std::make_unique<EmptyImpl>("");
     }else if(text[0] == FORMULA_SIGN && text.size() > 1){
         try{
             impl = std::make_unique<FormulaImpl>(text, sheet_);
+            NeedCyclicTest = true;
         }
         catch(...){
             throw FormulaException("Incorrect formula format");
@@ -81,6 +84,18 @@ void Cell::Set(std::string text) {
     }else{
         impl = std::make_unique<TextImpl>(text);
     }
+    if(NeedCyclicTest && TestCyclicDependance(impl->GetReferencedCells(), pos)){
+        throw CircularDependencyException("Circular dependency"); 
+    }
+    for (Cell* cell: referenced_by){
+        cell->GetReferenceTo().erase(this);
+    }
+    referenced_by.clear();
+    // for (Cell* cell: reference_to){
+    //     cell->GetReferencedBy().erase(this);
+    // }
+    // reference_to.clear();
+    
 
     impl_ = std::move(impl);
     referenced_cells_ = impl_-> GetReferencedCells();
@@ -90,12 +105,8 @@ void Cell::Set(std::string text) {
 }
 
 void Cell::Clear() {
-    Set("");
+    Set("", {-1,-1});
     is_empty = true;
-    for (Cell* cell: referenced_by){
-        cell->GetReferenceTo().erase(this);
-    }
-    reference_to.clear();
 }
 
 Cell::Value Cell::GetValue() const {
@@ -160,14 +171,19 @@ bool Cell::TestCyclicDependance(const CellInterface* cell, Position head) const{
     return res;
 }
 
-void Cell::Swap(Cell& other){
-    swap(cached_value_, other.cached_value_);
-    swap(impl_, other.impl_);
-    swap(referenced_cells_, other.referenced_cells_);
-    swap(referenced_by, other.referenced_by);
-    //reference_to не переносится, т.к. мы переносим данные ячейки, а не саму ячейку
+bool Cell::TestCyclicDependance(const std::vector<Position>& referenced_cells, Position head) const{
+    if(referenced_cells.empty()) { return false;}
+
+    bool res = false;
+    for(const auto& next_cell_pos : referenced_cells) {
+        if(next_cell_pos == head) {
+            return true;
+        }
+        res = res || TestCyclicDependance(sheet_.GetCell(next_cell_pos), head);
+    }
+    return res;
 }
 
- bool Cell::Empty(){
+bool Cell::Empty(){
     return is_empty;
- }
+}
